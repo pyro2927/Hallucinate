@@ -10,12 +10,12 @@ type MobileOpCode int
 
 const (
 	Secret          MobileOpCode = 1
-	SecretResponse  MobileOpCode = 2
-	Version         MobileOpCode = 3
-	VersionResponse MobileOpCode = 4
-	Subscribe       MobileOpCode = 5
+	SecretResponse  MobileOpCode = 2 // ex: [2, true]
+	Version         MobileOpCode = 3 // ex: [3]
+	VersionResponse MobileOpCode = 4 // ex: [4 "2.1.0" "localhost"]
+	Subscribe       MobileOpCode = 5 // ex: [5 ^\/lol-lobby\/v2\/lobby$]
 	Unsubscribe     MobileOpCode = 6
-	Request         MobileOpCode = 7
+	Request         MobileOpCode = 7 // ex: [7 23 /lol-game-queues/v1/queues GET <nil>]
 	RequestResponse MobileOpCode = 8
 	Update          MobileOpCode = 9
 )

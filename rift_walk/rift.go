@@ -3,12 +3,9 @@ package main
 import (
 	"bytes"
 	"crypto"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pyro2927/hallucinate/bandage_toss"
 	"github.com/pyro2927/hallucinate/forge"
+	"github.com/pyro2927/hallucinate/heimerdinger"
 )
 
 //const RIFT_HOST = "rift.mimic.lol"
@@ -75,9 +73,6 @@ func getToken() string {
 		validateRequest, _ := http.Get(RIFT_HUB + "/check?token=" + string(data))
 		result, _ := ioutil.ReadAll(validateRequest.Body)
 		valid = (string(result) == "true")
-		fmt.Println(string(data))
-		fmt.Println(string(result))
-		fmt.Println(valid)
 	}
 	if !valid {
 		fmt.Println("Requesting one")
@@ -103,13 +98,12 @@ func accessCode() string {
 		chunk2 += strings.Repeat("=", 4-i)
 	}
 	d, _ := base64.StdEncoding.DecodeString(chunk2)
-	fmt.Println(string(d))
 	j := JwtCode{}
 	json.Unmarshal(d, &j)
 	return j.Code
 }
 
-func sendMessage(ws *websocket.Conn, deviceId string, payload []interface{}) {
+func sendMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 	// TODO: handle encrypting payload before sending
 	var s []interface{}
 	s = append(s, int(Reply))
@@ -123,31 +117,18 @@ func sendMessage(ws *websocket.Conn, deviceId string, payload []interface{}) {
 		log.Println(err)
 		return
 	}
-	fmt.Println(string(jsonData))
 }
 
-func addBase64Padding(value string) string {
-	m := len(value) % 4
-	if m != 0 {
-		value += strings.Repeat("=", 4-m)
-	}
-	return value
-}
-
-func Unpad(src []byte) ([]byte, error) {
-	length := len(src)
-	unpadding := int(src[length-1])
-	if unpadding > length {
-		return nil, errors.New("unpad error. This could happen when incorrect encryption key is used")
-	}
-	return src[:(length - unpadding)], nil
+func sendSecureMessage(ws *websocket.Conn, deviceId string, payload []interface{}) {
+	// AESEncrypt then send normally
+	p, _ := heimerdinger.AESEncrypt(secretKey, payload)
+	sendMessage(ws, deviceId, p)
 }
 
 func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 	switch payload := payload.(type) {
 	case []interface{}:
 		emsg := payload[1].(string)
-		fmt.Println(emsg)
 		bmsg, err := base64.StdEncoding.DecodeString(emsg)
 		checkError(err)
 		// Need to use the same settings as node-rsa
@@ -158,49 +139,26 @@ func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 			fmt.Println("Unable to decrypt key")
 			return
 		}
-		fmt.Println(string(decoded))
 		var dp DevicePayload
 		err = json.Unmarshal(decoded, &dp)
 		checkError(err)
-		fmt.Println(dp.Secret)
 		secretKey, err = base64.StdEncoding.DecodeString(dp.Secret)
 		checkError(err)
 		// If all this works, confirm this is our device
 		sendMessage(ws, deviceId, bandage_toss.Accept(true))
 	case string:
-		// <base 64 iv>:<base 64 encrypted data>
-		ed := strings.Split(payload, ":")
-		iv, err := base64.StdEncoding.DecodeString(addBase64Padding(ed[0]))
-		checkError(err)
-		fmt.Printf("AES Secret %s\n", base64.StdEncoding.EncodeToString(secretKey))
-		fmt.Printf("IV %s\n", ed[0])
-		fmt.Printf("Decrypting %s\n", ed[1])
-		msg, err := base64.StdEncoding.DecodeString(addBase64Padding(ed[1]))
-		checkError(err)
-		if (len(msg) % aes.BlockSize) != 0 {
-			fmt.Println("blocksize must be multipe of decoded message length")
-			os.Exit(1)
-		}
-		// create our cipher block and decrypt
-		block, err := aes.NewCipher(secretKey)
-		checkError(err)
-		cfb := cipher.NewCBCDecrypter(block, iv)
-		cfb.CryptBlocks(msg, msg)
-		unpadMsg, err := Unpad(msg)
-		checkError(err)
-		// Unmarshal, pass to decrypted message function
-		var contents []interface{}
-		err = json.Unmarshal(unpadMsg, &contents)
-		checkError(err)
+		contents, _ := heimerdinger.AESDecrypt(secretKey, payload)
 		handleDecryptedMessage(ws, deviceId, contents)
 	}
 }
 
 func handleDecryptedMessage(ws *websocket.Conn, deviceId string, payload []interface{}) {
-	fmt.Println(payload)
 	switch bandage_toss.MobileOpCode(int(payload[0].(float64))) {
 	case bandage_toss.Version:
-		sendMessage(ws, deviceId, bandage_toss.VersionPayload())
+		sendSecureMessage(ws, deviceId, bandage_toss.VersionPayload())
+	default:
+		fmt.Println("Currently not handling payload...")
+		fmt.Println(payload)
 	}
 }
 
@@ -216,7 +174,6 @@ func main() {
 	}
 	defer c.Close()
 	code := accessCode()
-	fmt.Println("Token:", token)
 	fmt.Println("Access Code:", code)
 	// loop and listen to all messages
 	for {
@@ -225,7 +182,6 @@ func main() {
 			log.Println("read:", err)
 			return
 		}
-		log.Printf("recv: %s", message)
 		var contents []interface{}
 		err = json.Unmarshal(message, &contents)
 		if err != nil {
