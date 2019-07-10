@@ -1,7 +1,6 @@
 package bandage_toss
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 
@@ -63,6 +62,5 @@ func UpdatePayload(event fates_call.WebsocketEvent) []interface{} {
 		s = append(s, 200)
 	}
 	s = append(s, event.Data)
-	fmt.Println("Update payload created")
 	return s
 }

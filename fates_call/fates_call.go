@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pyro2927/hallucinate/braum"
 	"github.com/pyro2927/hallucinate/hawkshot"
 )
 
@@ -47,6 +48,7 @@ func (l *League) StartListening(wcb WebsocketCallback) {
 	// Example message:
 	// [8,"OnJsonApiEvent",{"data":[],"eventType":"Update","uri":"/lol-service-status/v1/ticker-messages"}]
 	for {
+		// TODO: handle server disconnect
 		_, message, err := l.ws.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
@@ -58,7 +60,7 @@ func (l *League) StartListening(wcb WebsocketCallback) {
 		}
 		// hacky three-way marshal to get interface{} into struct
 		var payload []interface{}
-		err = json.Unmarshal(message, &payload)
+		err = braum.Unbreakable(message, &payload)
 		if err != nil {
 			log.Fatal(err)
 			continue
@@ -69,7 +71,7 @@ func (l *League) StartListening(wcb WebsocketCallback) {
 			continue
 		}
 		var event WebsocketEvent
-		err = json.Unmarshal(b, &event)
+		err = braum.Unbreakable(b, &event)
 		if err != nil {
 			log.Fatal(err)
 			continue
@@ -82,7 +84,7 @@ type RequestCallback func(statusCode int, content interface{})
 
 func (l *League) HandleRequest(path string, method string, body string, cb RequestCallback) {
 	uri := fmt.Sprintf("https://%s%s", l.host, path)
-	fmt.Printf("Making %s request to %s\n", method, uri)
+	//fmt.Printf("Making %s request to %s\n", method, uri)
 	req, err := http.NewRequest(method, uri, strings.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
@@ -104,10 +106,14 @@ func (l *League) HandleRequest(path string, method string, body string, cb Reque
 		log.Fatal(err)
 	}
 	var content interface{}
-	err = json.Unmarshal(r, &content)
-	if err != nil {
-		log.Fatal(err)
-		return
+	if len(r) > 0 {
+		err = braum.Unbreakable(r, &content)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	} else {
+		content = []byte("null")
 	}
 	cb(resp.StatusCode, content)
 }

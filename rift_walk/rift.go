@@ -84,7 +84,7 @@ func getToken() string {
 		req, _ := http.Post(RIFT_HUB+"/register", "application/json", bytes.NewBuffer(jsonValue))
 		response := RiftResponse{}
 		body2, _ := ioutil.ReadAll(req.Body)
-		json.Unmarshal(body2, &response)
+		braum.Unbreakable(body2, &response)
 		ioutil.WriteFile(HUB_TOKEN_FILE, []byte(response.Token), 0755)
 		return response.Token
 	}
@@ -101,7 +101,7 @@ func accessCode() string {
 	}
 	d, _ := base64.StdEncoding.DecodeString(chunk2)
 	j := JwtCode{}
-	json.Unmarshal(d, &j)
+	braum.Unbreakable(d, &j)
 	return j.Code
 }
 
@@ -141,7 +141,7 @@ func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 			return
 		}
 		var dp DevicePayload
-		err = json.Unmarshal(decoded, &dp)
+		err = braum.Unbreakable(decoded, &dp)
 		checkError(err)
 		secretKey, err = base64.StdEncoding.DecodeString(dp.Secret)
 		checkError(err)
@@ -211,7 +211,7 @@ func main() {
 			return
 		}
 		var contents []interface{}
-		err = json.Unmarshal(message, &contents)
+		err = braum.Unbreakable(message, &contents)
 		if err != nil {
 			log.Println("Error unmarshaling JSON:", err)
 			continue

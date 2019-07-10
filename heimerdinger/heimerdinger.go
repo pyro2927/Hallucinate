@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/pyro2927/hallucinate/braum"
 )
 
 func addBase64Padding(value string) string {
@@ -57,7 +59,7 @@ func AESDecrypt(key []byte, message string) ([]interface{}, error) {
 	checkError(err)
 	// Unmarshal, pass to decrypted message function
 	var contents []interface{}
-	err = json.Unmarshal(unpadMsg, &contents)
+	err = braum.Unbreakable(unpadMsg, &contents)
 	checkError(err)
 	return contents, nil
 }

@@ -31,8 +31,8 @@ func LeagueCreds() (string, string, string, string, string) {
 			cli, _ := proc.Cmdline()
 			if r.MatchString(cli) {
 				install_dir := r.FindStringSubmatch(cli)[1]
-				process, pid, port, password, protocol := readFile(install_dir)
-				return process, pid, port, password, protocol
+				proc, pid, port, password, protocol := readFile(install_dir)
+				return proc, pid, port, password, protocol
 			}
 		}
 	}
