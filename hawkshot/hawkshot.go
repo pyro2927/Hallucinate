@@ -1,7 +1,9 @@
 package hawkshot
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -16,6 +18,8 @@ func readFile(location string) (string, string, string, string, string) {
 
 // returns information for League client
 func LeagueCreds() (string, string, string, string, string) {
+	// TODO: this is slow as fuck, should figure out a way to do this faster
+	fmt.Println("Hunting for LeagueClientUX process... (slow)")
 	processes, _ := process.Processes()
 	r, _ := regexp.Compile("--install-directory=(.*?) --")
 
@@ -32,4 +36,8 @@ func LeagueCreds() (string, string, string, string, string) {
 			}
 		}
 	}
+	// TODO: better handle League not running
+	fmt.Println("League not running, try again")
+	os.Exit(1)
+	return "", "", "", "", ""
 }

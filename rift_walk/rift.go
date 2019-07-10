@@ -16,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/pyro2927/hallucinate/bandage_toss"
+	"github.com/pyro2927/hallucinate/fates_call"
 	"github.com/pyro2927/hallucinate/forge"
 	"github.com/pyro2927/hallucinate/heimerdinger"
 )
@@ -28,6 +29,7 @@ const RIFT_HUB = WEB_PROTOCOL + "://" + RIFT_HOST
 const HUB_TOKEN_FILE = "hub.token"
 
 var secretKey []byte
+var l *fates_call.League
 
 // {"ok":true,"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiNTMwMzA0IiwiaWF0IjoxNTYyMTkyNzc5fQ.4BXkkePT1W5dtwusPJD7Syo3lyfQBONVz2RA2Bgdf5M"}
 type RiftResponse struct {
@@ -104,7 +106,6 @@ func accessCode() string {
 }
 
 func sendMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
-	// TODO: handle encrypting payload before sending
 	var s []interface{}
 	s = append(s, int(Reply))
 	s = append(s, deviceId)
@@ -148,6 +149,7 @@ func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 		sendMessage(ws, deviceId, bandage_toss.Accept(true))
 	case string:
 		contents, _ := heimerdinger.AESDecrypt(secretKey, payload)
+		fmt.Println(contents)
 		handleDecryptedMessage(ws, deviceId, contents)
 	}
 }
@@ -156,6 +158,20 @@ func handleDecryptedMessage(ws *websocket.Conn, deviceId string, payload []inter
 	switch bandage_toss.MobileOpCode(int(payload[0].(float64))) {
 	case bandage_toss.Version:
 		sendSecureMessage(ws, deviceId, bandage_toss.VersionPayload())
+	case bandage_toss.Request:
+		requestId := int(payload[1].(float64))
+		path := payload[2].(string)
+		method := payload[3].(string)
+		body := ""
+		// safe check for a payload vs nil
+		switch payload[4].(type) {
+		case string:
+			body = payload[4].(string)
+		}
+		cb := func(status int, content interface{}) {
+			sendSecureMessage(ws, deviceId, bandage_toss.RequestResponsePayload(requestId, status, content))
+		}
+		l.HandleRequest(path, method, body, cb)
 	default:
 		fmt.Println("Currently not handling payload...")
 		fmt.Println(payload)
@@ -163,6 +179,10 @@ func handleDecryptedMessage(ws *websocket.Conn, deviceId string, payload []inter
 }
 
 func main() {
+	// TODO: gracefully handle if LoL isn't open
+	l = fates_call.LeagueConnection()
+	fmt.Println("Connected to League!")
+	fmt.Println("Connecting to Rift...")
 	token := getToken()
 	key := forge.PublicKey()
 	u := url.URL{Scheme: WS_PROTOCOL, Host: RIFT_HOST, Path: "/conduit"}
@@ -174,6 +194,7 @@ func main() {
 	}
 	defer c.Close()
 	code := accessCode()
+	fmt.Println("Connected to Rift!")
 	fmt.Println("Access Code:", code)
 	// loop and listen to all messages
 	for {

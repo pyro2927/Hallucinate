@@ -39,3 +39,12 @@ func VersionPayload() []interface{} {
 	}
 	return s
 }
+
+func RequestResponsePayload(requestId int, status int, content interface{}) []interface{} {
+	var s []interface{}
+	s = append(s, int(RequestResponse))
+	s = append(s, requestId)
+	s = append(s, status)
+	s = append(s, content)
+	return s
+}
