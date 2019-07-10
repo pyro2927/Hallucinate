@@ -55,6 +55,12 @@ type DevicePayload struct {
 	Browser  string `json:"browser"`
 }
 
+type WebsocketMessage struct {
+	ws       *websocket.Conn
+	deviceId string
+	payload  interface{}
+}
+
 // https://github.com/molenzwiebel/Mimic/blob/master/conduit/HubConnectionHandler.cs#L109
 type RiftOpCode int
 
@@ -105,19 +111,27 @@ func accessCode() string {
 	return j.Code
 }
 
-func sendMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
-	var s []interface{}
-	s = append(s, int(Reply))
-	s = append(s, deviceId)
-	s = append(s, payload)
-	jsonData, _ := json.Marshal(s)
+var msgs chan *WebsocketMessage
 
-	// SEND IT!
-	err := ws.WriteMessage(websocket.TextMessage, jsonData)
-	if err != nil {
-		log.Println(err)
-		return
+func processMessages() {
+	for m := range msgs {
+		var s []interface{}
+		s = append(s, int(Reply))
+		s = append(s, m.deviceId)
+		s = append(s, m.payload)
+		jsonData, _ := json.Marshal(s)
+
+		// SEND IT!
+		err := m.ws.WriteMessage(websocket.TextMessage, jsonData)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
+}
+
+func sendMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
+	msgs <- &WebsocketMessage{ws: ws, deviceId: deviceId, payload: payload}
 }
 
 func sendSecureMessage(ws *websocket.Conn, deviceId string, payload []interface{}) {
@@ -200,6 +214,8 @@ func main() {
 		log.Fatal("dial:", err)
 	}
 	defer c.Close()
+	msgs = make(chan *WebsocketMessage)
+	go processMessages()
 	code := accessCode()
 	fmt.Println("Connected to Rift!")
 	fmt.Println("Access Code:", code)
