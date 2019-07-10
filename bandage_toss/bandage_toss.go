@@ -1,8 +1,11 @@
 package bandage_toss
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/pyro2927/hallucinate/fates_call"
 )
 
 // https://github.com/molenzwiebel/Mimic/blob/master/conduit/MobileConnectionHandler.cs#L161
@@ -46,5 +49,20 @@ func RequestResponsePayload(requestId int, status int, content interface{}) []in
 	s = append(s, requestId)
 	s = append(s, status)
 	s = append(s, content)
+	return s
+}
+
+func UpdatePayload(event fates_call.WebsocketEvent) []interface{} {
+	var s []interface{}
+	s = append(s, int(Update))
+	s = append(s, event.Uri)
+	// https://github.com/molenzwiebel/Mimic/blob/master/conduit/MobileConnectionHandler.cs#L156
+	if event.EventType == "Create" || event.EventType == "Update" {
+		s = append(s, 200)
+	} else {
+		s = append(s, 200)
+	}
+	s = append(s, event.Data)
+	fmt.Println("Update payload created")
 	return s
 }

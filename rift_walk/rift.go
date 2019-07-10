@@ -146,10 +146,15 @@ func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 		secretKey, err = base64.StdEncoding.DecodeString(dp.Secret)
 		checkError(err)
 		// If all this works, confirm this is our device
+		// TODO: make this an interactive check for yes/no
 		sendMessage(ws, deviceId, bandage_toss.Accept(true))
+		// subscribe to all future messages via websockets
+		cb := func(event fates_call.WebsocketEvent) {
+			sendSecureMessage(ws, deviceId, bandage_toss.UpdatePayload(event))
+		}
+		go l.StartListening(cb)
 	case string:
 		contents, _ := heimerdinger.AESDecrypt(secretKey, payload)
-		fmt.Println(contents)
 		handleDecryptedMessage(ws, deviceId, contents)
 	}
 }
@@ -172,6 +177,8 @@ func handleDecryptedMessage(ws *websocket.Conn, deviceId string, payload []inter
 			sendSecureMessage(ws, deviceId, bandage_toss.RequestResponsePayload(requestId, status, content))
 		}
 		l.HandleRequest(path, method, body, cb)
+	case bandage_toss.Subscribe:
+		l.Subscribe(payload[1].(string))
 	default:
 		fmt.Println("Currently not handling payload...")
 		fmt.Println(payload)

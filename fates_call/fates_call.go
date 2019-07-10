@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,10 +19,63 @@ import (
 )
 
 type League struct {
-	host string
-	auth string
-	ws   *websocket.Conn
-	http *http.Client
+	host          string
+	auth          string
+	ws            *websocket.Conn
+	http          *http.Client
+	subscriptions []*regexp.Regexp
+}
+
+func (l *League) Subscribe(pattern string) error {
+	subscription, err := regexp.Compile(pattern)
+	l.subscriptions = append(l.subscriptions, subscription)
+	if err != nil {
+		fmt.Printf("Unable to compile %s into Regex\n", pattern)
+	}
+	return err
+}
+
+type WebsocketEvent struct {
+	Data      interface{} `json:"data"`
+	EventType string      `json:"eventType"`
+	Uri       string      `json:"uri"`
+}
+
+type WebsocketCallback func(content WebsocketEvent)
+
+func (l *League) StartListening(wcb WebsocketCallback) {
+	// Example message:
+	// [8,"OnJsonApiEvent",{"data":[],"eventType":"Update","uri":"/lol-service-status/v1/ticker-messages"}]
+	for {
+		_, message, err := l.ws.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			continue
+		}
+		if len(message) < 8 {
+			fmt.Println("Message too short, skipping Unmarshalling")
+			continue
+		}
+		// hacky three-way marshal to get interface{} into struct
+		var payload []interface{}
+		err = json.Unmarshal(message, &payload)
+		if err != nil {
+			log.Fatal(err)
+			continue
+		}
+		b, err := json.Marshal(payload[2])
+		if err != nil {
+			log.Fatal(err)
+			continue
+		}
+		var event WebsocketEvent
+		err = json.Unmarshal(b, &event)
+		if err != nil {
+			log.Fatal(err)
+			continue
+		}
+		wcb(event)
+	}
 }
 
 type RequestCallback func(statusCode int, content interface{})
@@ -86,5 +140,5 @@ func LeagueConnection() *League {
 		Timeout:   time.Second * 10,
 		Transport: &http.Transport{TLSClientConfig: config},
 	}
-	return &League{ws: c, http: netClient, auth: auth, host: u.Host}
+	return &League{ws: c, http: netClient, auth: auth, host: u.Host, subscriptions: []*regexp.Regexp{}}
 }
