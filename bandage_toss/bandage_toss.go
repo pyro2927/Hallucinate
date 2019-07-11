@@ -59,7 +59,7 @@ func UpdatePayload(event fates_call.WebsocketEvent) []interface{} {
 	if event.EventType == "Create" || event.EventType == "Update" {
 		s = append(s, 200)
 	} else {
-		s = append(s, 200)
+		s = append(s, 404)
 	}
 	s = append(s, event.Data)
 	return s
