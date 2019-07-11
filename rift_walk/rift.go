@@ -16,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/pyro2927/hallucinate/bandage_toss"
+	"github.com/pyro2927/hallucinate/braum"
 	"github.com/pyro2927/hallucinate/fates_call"
 	"github.com/pyro2927/hallucinate/forge"
 	"github.com/pyro2927/hallucinate/heimerdinger"

@@ -29,6 +29,7 @@ type League struct {
 
 func (l *League) Subscribe(pattern string) error {
 	subscription, err := regexp.Compile(pattern)
+	// TODO: make this thread safe
 	l.subscriptions = append(l.subscriptions, subscription)
 	if err != nil {
 		fmt.Printf("Unable to compile %s into Regex\n", pattern)
@@ -76,7 +77,13 @@ func (l *League) StartListening(wcb WebsocketCallback) {
 			log.Fatal(err)
 			continue
 		}
-		wcb(event)
+		// verify that this URI has a regex match with one of our patterns
+		for _, sub := range l.subscriptions {
+			if sub.Match([]byte(event.Uri)) {
+				wcb(event)
+				break
+			}
+		}
 	}
 }
 
