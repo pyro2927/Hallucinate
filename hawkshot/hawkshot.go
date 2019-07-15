@@ -10,6 +10,8 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
+var NORMAL_LOCATIONS = []string{"/Applications/League of Legends.app/Contents/LoL"}
+
 func readFile(location string) (string, string, string, string, string) {
 	dat, _ := ioutil.ReadFile(location + "/lockfile")
 	x := strings.Split(string(dat), ":")
@@ -18,7 +20,13 @@ func readFile(location string) (string, string, string, string, string) {
 
 // returns information for League client
 func LeagueCreds() (string, string, string, string, string) {
-	// TODO: this is slow as fuck, should figure out a way to do this faster
+	// check a few default locations
+	for _, loc := range NORMAL_LOCATIONS {
+		if _, err := os.Stat(loc + "/lockfile"); err == nil {
+			proc, pid, port, password, protocol := readFile(loc)
+			return proc, pid, port, password, protocol
+		}
+	}
 	fmt.Println("Hunting for LeagueClientUX process... (slow)")
 	processes, _ := process.Processes()
 	r, _ := regexp.Compile("--install-directory=(.*?) --")

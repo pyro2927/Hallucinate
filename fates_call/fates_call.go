@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -25,16 +26,30 @@ type League struct {
 	ws            *websocket.Conn
 	http          *http.Client
 	subscriptions []*regexp.Regexp
+	mux           sync.Mutex
 }
 
 func (l *League) Subscribe(pattern string) error {
 	subscription, err := regexp.Compile(pattern)
-	// TODO: make this thread safe
-	l.subscriptions = append(l.subscriptions, subscription)
 	if err != nil {
 		fmt.Printf("Unable to compile %s into Regex\n", pattern)
+	} else {
+		l.mux.Lock()
+		defer l.mux.Unlock()
+		l.subscriptions = append(l.subscriptions, subscription)
 	}
 	return err
+}
+
+func (l *League) Unsubscribe(pattern string) {
+	for i, s := range l.subscriptions {
+		if s.String() == pattern {
+			l.mux.Lock()
+			defer l.mux.Unlock()
+			l.subscriptions = append(l.subscriptions[:i], l.subscriptions[i+1:]...)
+			return
+		}
+	}
 }
 
 type WebsocketEvent struct {

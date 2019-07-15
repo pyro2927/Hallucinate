@@ -195,7 +195,7 @@ func handleDecryptedMessage(ws *websocket.Conn, deviceId string, payload []inter
 	case bandage_toss.Subscribe:
 		l.Subscribe(payload[1].(string))
 	case bandage_toss.Unsubscribe:
-		fmt.Printf("Unsubscribe from %s\n", payload[1].(string))
+		l.Unsubscribe(payload[1].(string))
 	default:
 		fmt.Println("Currently not handling payload...")
 		fmt.Println(payload)
