@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto"
 	"crypto/rsa"
@@ -161,13 +162,17 @@ func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 		secretKey, err = base64.StdEncoding.DecodeString(dp.Secret)
 		checkError(err)
 		// If all this works, confirm this is our device
-		// TODO: make this an interactive check for yes/no
-		sendMessage(ws, deviceId, bandage_toss.Accept(true))
-		// subscribe to all future messages via websockets
-		cb := func(event fates_call.WebsocketEvent) {
-			sendSecureMessage(ws, deviceId, bandage_toss.UpdatePayload(event))
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Printf("%s (%s) is trying to connect, allow? [y/N]", dp.Device, dp.Browser)
+		text, _ := reader.ReadString('\n')
+		if strings.HasPrefix(strings.TrimLeft(text, "	  "), "y") {
+			sendMessage(ws, deviceId, bandage_toss.Accept(true))
+			// subscribe to all future messages via websockets
+			cb := func(event fates_call.WebsocketEvent) {
+				sendSecureMessage(ws, deviceId, bandage_toss.UpdatePayload(event))
+			}
+			go l.StartListening(cb)
 		}
-		go l.StartListening(cb)
 	case string:
 		contents, _ := heimerdinger.AESDecrypt(secretKey, payload)
 		handleDecryptedMessage(ws, deviceId, contents)
