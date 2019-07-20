@@ -27,7 +27,7 @@ func Reader() io.Reader {
 }
 
 func createOrLoadKey() *rsa.PrivateKey {
-	dataFile, err := os.Open(CACHE_FILE)
+	dataFile, err := os.Open(PreferencesDirectory() + CACHE_FILE)
 	if err != nil {
 		fmt.Println("No previous key file found, creating one")
 		reader := Reader()
@@ -36,7 +36,7 @@ func createOrLoadKey() *rsa.PrivateKey {
 		key, err := rsa.GenerateKey(reader, bitSize)
 		checkError(err)
 
-		outFile, err := os.Create(CACHE_FILE)
+		outFile, err := os.Create(PreferencesDirectory() + CACHE_FILE)
 		checkError(err)
 		defer outFile.Close()
 
@@ -90,7 +90,7 @@ func PreferencesDirectory() string {
 	return UserHomeDir() + "/.mimic/"
 }
 
-func FileContents(filename string) []string {
+func ReadLines(filename string) []string {
 	dat, err := ioutil.ReadFile(PreferencesDirectory() + filename)
 	if err != nil {
 		return []string{}

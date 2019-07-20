@@ -66,7 +66,7 @@ const (
 
 func getToken() string {
 	valid := false
-	data, err := ioutil.ReadFile(HUB_TOKEN_FILE)
+	data, err := ioutil.ReadFile(forge.PreferencesDirectory() + HUB_TOKEN_FILE)
 	if err != nil {
 		fmt.Println("No previous token found")
 	} else {
@@ -84,7 +84,7 @@ func getToken() string {
 		response := RiftResponse{}
 		body2, _ := ioutil.ReadAll(req.Body)
 		braum.Unbreakable(body2, &response)
-		ioutil.WriteFile(HUB_TOKEN_FILE, []byte(response.Token), 0755)
+		ioutil.WriteFile(forge.PreferencesDirectory()+HUB_TOKEN_FILE, []byte(response.Token), 0755)
 		return response.Token
 	}
 	return string(data)
@@ -92,7 +92,7 @@ func getToken() string {
 
 func accessCode() string {
 	// TODO: do something about all these ignored errors
-	data, _ := ioutil.ReadFile(HUB_TOKEN_FILE)
+	data, _ := ioutil.ReadFile(forge.PreferencesDirectory() + HUB_TOKEN_FILE)
 	chunk2 := strings.Split(string(data), ".")[1]
 	// JWT doesn't pad base64 decoded strings, so we need to do that
 	if i := len(chunk2) % 4; i != 0 {

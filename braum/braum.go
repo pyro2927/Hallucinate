@@ -30,7 +30,7 @@ func Unbreakable(b []byte, i interface{}) error {
 
 func DeviceApproved(dp DevicePayload) bool {
 	// check if previously approved
-	approvedDevices := forge.FileContents("devices.txt")
+	approvedDevices := forge.ReadLines("devices.txt")
 	for _, d := range approvedDevices {
 		if dp.Identity == d {
 			return true
