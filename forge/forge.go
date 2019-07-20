@@ -7,7 +7,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"runtime"
+	"strings"
 
 	"github.com/pyro2927/pkcs8"
 )
@@ -70,4 +73,32 @@ func checkError(err error) {
 		fmt.Println("Fatal error ", err.Error())
 		os.Exit(1)
 	}
+}
+
+func UserHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
+	}
+	return os.Getenv("HOME")
+}
+
+func PreferencesDirectory() string {
+	return UserHomeDir() + "/.mimic/"
+}
+
+func FileContents(filename string) []string {
+	dat, err := ioutil.ReadFile(PreferencesDirectory() + filename)
+	if err != nil {
+		return []string{}
+	}
+	return strings.Split(string(dat), "\n")
+}
+
+func WriteLines(filename string, lines []string) error {
+	os.MkdirAll(PreferencesDirectory(), os.ModePerm)
+	return ioutil.WriteFile(PreferencesDirectory()+filename, []byte(strings.Join(lines, "\n")), 0644)
 }

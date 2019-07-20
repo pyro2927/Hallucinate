@@ -26,6 +26,7 @@ type League struct {
 	ws            *websocket.Conn
 	http          *http.Client
 	subscriptions []*regexp.Regexp
+	listeners     []WebsocketCallback
 	mux           sync.Mutex
 }
 
@@ -60,7 +61,7 @@ type WebsocketEvent struct {
 
 type WebsocketCallback func(content WebsocketEvent)
 
-func (l *League) StartListening(wcb WebsocketCallback) {
+func (l *League) backgroundListener() {
 	// Example message:
 	// [8,"OnJsonApiEvent",{"data":[],"eventType":"Update","uri":"/lol-service-status/v1/ticker-messages"}]
 	for {
@@ -95,10 +96,24 @@ func (l *League) StartListening(wcb WebsocketCallback) {
 		// verify that this URI has a regex match with one of our patterns
 		for _, sub := range l.subscriptions {
 			if sub.Match([]byte(event.Uri)) {
-				wcb(event)
+				l.mux.Lock()
+				for _, callback := range l.listeners {
+					callback(event)
+				}
+				l.mux.Unlock()
 				break
 			}
 		}
+	}
+}
+
+func (l *League) StartListening(wcb WebsocketCallback) {
+	l.mux.Lock()
+	fmt.Println("Adding new listener")
+	l.listeners = append(l.listeners, wcb)
+	l.mux.Unlock()
+	if len(l.listeners) <= 1 {
+		go l.backgroundListener()
 	}
 }
 
@@ -168,5 +183,5 @@ func LeagueConnection() *League {
 		Timeout:   time.Second * 10,
 		Transport: &http.Transport{TLSClientConfig: config},
 	}
-	return &League{ws: c, http: netClient, auth: auth, host: u.Host, subscriptions: []*regexp.Regexp{}}
+	return &League{ws: c, http: netClient, auth: auth, host: u.Host, subscriptions: []*regexp.Regexp{}, listeners: []WebsocketCallback{}}
 }

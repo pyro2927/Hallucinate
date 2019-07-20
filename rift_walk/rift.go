@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"crypto"
 	"crypto/rsa"
@@ -47,14 +46,6 @@ type RiftPayload struct {
 type JwtCode struct {
 	Code string `json:"code"`
 	Iat  int    `json:"iat"`
-}
-
-// {"secret":"MdTk081GkFQrSQ0pu4g/cY5gpcNbhUTjyR1uacAwnn8=","identity":"e7c69769-d606-4db7-b27a-236c2777f621","device":"iPhone","browser":"Safari"}
-type DevicePayload struct {
-	Secret   string `json:"secret"`
-	Identity string `json:"identity"`
-	Device   string `json:"device"`
-	Browser  string `json:"browser"`
 }
 
 type WebsocketMessage struct {
@@ -156,22 +147,18 @@ func handleMessage(ws *websocket.Conn, deviceId string, payload interface{}) {
 			fmt.Println("Unable to decrypt key")
 			return
 		}
-		var dp DevicePayload
+		var dp braum.DevicePayload
 		err = braum.Unbreakable(decoded, &dp)
 		checkError(err)
 		secretKey, err = base64.StdEncoding.DecodeString(dp.Secret)
 		checkError(err)
-		// If all this works, confirm this is our device
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Printf("%s (%s) is trying to connect, allow? [y/N]", dp.Device, dp.Browser)
-		text, _ := reader.ReadString('\n')
-		if strings.HasPrefix(strings.TrimLeft(text, "	  "), "y") {
+		if braum.DeviceApproved(dp) {
 			sendMessage(ws, deviceId, bandage_toss.Accept(true))
 			// subscribe to all future messages via websockets
 			cb := func(event fates_call.WebsocketEvent) {
 				sendSecureMessage(ws, deviceId, bandage_toss.UpdatePayload(event))
 			}
-			go l.StartListening(cb)
+			l.StartListening(cb)
 		}
 	case string:
 		contents, _ := heimerdinger.AESDecrypt(secretKey, payload)
